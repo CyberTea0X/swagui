@@ -9,8 +9,36 @@ import (
 )
 
 //go:embed swaggerui/*
+
 var staticFiles embed.FS
 
+// SetupSwagger configures an HTTP handler to serve Swagger UI and OpenAPI specification.
+//
+// Parameters:
+//   - docsPath: the URL path where Swagger UI will be available (e.g., "/api/docs")
+//   - openapiFile: the content of the OpenAPI specification in YAML format
+//
+// Returns:
+//
+//	An http.Handler that can be registered with an HTTP server
+//
+// Sets up the following routes:
+//  1. /openapi.yaml - serves the provided OpenAPI specification
+//  2. {docsPath}/swaggerui(.html)? - serves the main Swagger UI page
+//  3. {docsPath}/oauth2-redirect(.html)? - serves the OAuth2 redirect page
+//  4. {docsPath}/* - serves all other static files for Swagger UI
+//
+// Features:
+//   - Uses embedded files from the "swaggerui" directory
+//   - Automatically sets correct Content-Type headers
+//   - Supports both paths with and without .html extension
+//   - Returns 404 for the root {docsPath} to avoid ambiguous routing
+//
+// Example usage:
+//
+//	openapiSpec, _ := os.ReadFile("openapi.yaml")
+//	swaggerHandler := swagui.SetupSwagger("/api/docs", openapiSpec)
+//	http.Handle("/", swaggerHandler)
 func SetupSwagger(docsPath string, openapiFile []byte) http.Handler {
 	mux := http.NewServeMux()
 
