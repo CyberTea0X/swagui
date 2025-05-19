@@ -23,7 +23,7 @@
         <script>
             window.onload = () => {
                 window.ui = SwaggerUIBundle({
-                    url: "/api/v1/openapi.yaml",
+                    url: "{{ .OpenAPIPath }}", // Динамический путь
                     dom_id: "#swagger-ui",
                     presets: [
                         SwaggerUIBundle.presets.apis,
@@ -36,7 +36,7 @@
                     appName: "your-app-name",
                     scopeSeparator: " ",
                     scopes: "user",
-                    display: "popup", // Открытие в popup
+                    display: "popup",
                 });
             };
         </script>

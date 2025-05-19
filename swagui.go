@@ -3,6 +3,7 @@ package swagui
 import (
 	"embed"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"net/http"
 	"path/filepath"
@@ -11,6 +12,23 @@ import (
 //go:embed swaggerui/*
 
 var staticFiles embed.FS
+
+var swaggerTemplate *template.Template
+
+func init() {
+	// Инициализируем шаблон Swagger UI при запуске
+	subFS, err := fs.Sub(staticFiles, "swaggerui")
+	if err != nil {
+		panic(fmt.Errorf("failed to create sub filesystem: %w", err))
+	}
+
+	swig, err := fs.ReadFile(subFS, "swaggerui.html")
+	if err != nil {
+		panic(fmt.Errorf("failed to read swaggerui.html: %w", err))
+	}
+
+	swaggerTemplate = template.Must(template.New("swaggerui").Parse(string(swig)))
+}
 
 // SetupSwagger configures an HTTP handler to serve Swagger UI and OpenAPI specification.
 //
@@ -54,22 +72,31 @@ func SetupSwagger(docsPath string, openapiFile []byte) http.Handler {
 		panic(fmt.Errorf("failed to create sub filesystem: %w", err))
 	}
 
-	// Обработчики для конкретных файлов
-	for _, route := range []struct {
-		Name     string
-		Filename string
-	}{
-		{"swaggerui", "swaggerui.html"},
-		{"oauth2-redirect", "oauth2-redirect.html"},
-	} {
-		path := filepath.Join(docsPath, route.Name)
-		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFileFS(w, r, subFS, route.Filename)
-		})
-		mux.HandleFunc(path+".html", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFileFS(w, r, subFS, route.Filename)
-		})
+	path := filepath.Join(docsPath, "oauth2-redirect")
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, subFS, "oauth2-redirect.html")
+	})
+	mux.HandleFunc(path+".html", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, subFS, "oauth2-redirect.html")
+	})
+
+	// Обработчик для swaggerui.html с использованием шаблона
+	openAPIPath := "/openapi.yaml"
+	swaggerHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		data := struct {
+			OpenAPIPath string
+		}{
+			OpenAPIPath: openAPIPath,
+		}
+
+		if err := swaggerTemplate.Execute(w, data); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 	}
+
+	mux.HandleFunc(filepath.Join(docsPath, "swaggerui"), swaggerHandler)
+	mux.HandleFunc(filepath.Join(docsPath, "swaggerui.html"), swaggerHandler)
 
 	// Обработчик для остальных статических файлов
 	fsHandler := http.FileServerFS(subFS)
