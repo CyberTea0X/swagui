@@ -30,7 +30,9 @@ func TestSetupSwagger(t *testing.T) {
 	var expectedSwagContent bytes.Buffer
 	data := struct {
 		OpenAPIPath string
-	}{OpenAPIPath: "/openapi.yaml"}
+	}{
+		OpenAPIPath: "/api/v1/docs/openapi.yaml",
+	}
 	if err := swaggerTemplate.Execute(&expectedSwagContent, data); err != nil {
 		t.Fatalf("Failed to execute template: %v", err)
 	}
@@ -42,7 +44,10 @@ info:
   version: 1.0.0`)
 
 	// Настройка обработчика
-	handler := SetupSwagger("/api/v1/docs", openapi)
+	handler, err := SetupSwagger("/api/v1/docs", openapi, ".yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 

@@ -57,31 +57,34 @@ func init() {
 //	openapiSpec, _ := os.ReadFile("openapi.yaml")
 //	swaggerHandler := swagui.SetupSwagger("/api/docs", openapiSpec)
 //	http.Handle("/", swaggerHandler)
-func SetupSwagger(docsPath string, openapiFile []byte) http.Handler {
+func SetupSwagger(docsPath string, openapiFile []byte, openapiExt string) (http.Handler, error) {
+	if openapiExt != ".yaml" && openapiExt != ".json" {
+		return nil, fmt.Errorf("unsupported extension, must be .yaml or .json, got %s", openapiExt)
+	}
 	mux := http.NewServeMux()
 
-	// Обработчик для /openapi.yaml
-	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/yaml")
+	// Обработчик для /openapi
+	mux.HandleFunc("/openapi"+openapiExt, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/"+openapiExt[1:])
 		_, _ = w.Write(openapiFile)
 	})
 
 	// Создаем под-FS для директории swaggerui
 	subFS, err := fs.Sub(staticFiles, "swaggerui")
 	if err != nil {
-		panic(fmt.Errorf("failed to create sub filesystem: %w", err))
+		return nil, fmt.Errorf("failed to create sub filesystem: %w", err)
 	}
 
-	path := filepath.Join(docsPath, "oauth2-redirect")
-	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+	oauthRedirPath := filepath.Join(docsPath, "oauth2-redirect")
+	mux.HandleFunc(oauthRedirPath, func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, subFS, "oauth2-redirect.html")
 	})
-	mux.HandleFunc(path+".html", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(oauthRedirPath+".html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, subFS, "oauth2-redirect.html")
 	})
 
 	// Обработчик для swaggerui.html с использованием шаблона
-	openAPIPath := "/openapi.yaml"
+	openAPIPath := filepath.Join(docsPath, "/openapi"+openapiExt)
 	swaggerHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		data := struct {
@@ -102,5 +105,5 @@ func SetupSwagger(docsPath string, openapiFile []byte) http.Handler {
 	fsHandler := http.FileServerFS(subFS)
 	mux.Handle(docsPath, http.StripPrefix(docsPath, fsHandler))
 
-	return mux
+	return mux, nil
 }
