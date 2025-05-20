@@ -63,8 +63,8 @@ func SetupSwagger(docsPath string, openapiFile []byte, openapiExt string) (http.
 	}
 	mux := http.NewServeMux()
 
-	// Обработчик для /openapi
-	mux.HandleFunc("/openapi"+openapiExt, func(w http.ResponseWriter, r *http.Request) {
+	openAPIPath := filepath.Join(docsPath, "/openapi"+openapiExt)
+	mux.HandleFunc(openAPIPath, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/"+openapiExt[1:])
 		_, _ = w.Write(openapiFile)
 	})
@@ -84,7 +84,6 @@ func SetupSwagger(docsPath string, openapiFile []byte, openapiExt string) (http.
 	})
 
 	// Обработчик для swaggerui.html с использованием шаблона
-	openAPIPath := filepath.Join(docsPath, "/openapi"+openapiExt)
 	swaggerHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		data := struct {
